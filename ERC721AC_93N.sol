@@ -1,18 +1,12 @@
 /***
 [DEPLOYMENT] CHANGE TOKEN ADDRESSES
 Remove slow down process
+Check withdrawal amount
 Change withdraw to individual
 Change tokenuri
 Change %
 Change to 180 days
 Add mergeable
-
-IPFS IMAGE
-bafybeignocrxxvzeytqvwyirsqlmhap73bnljwhjue3h7q7l6pjv4notba
-bafybeibfq6g54krudacqhkpj77vkmpjgu6geeysnj6mbk24duippgvfjq4
-bafybeibraambmefp6l3uzjb7hq7qp75ixvrefrbggnezzmmq3pzckm77xa
-bafybeidcipg6rpcochekmgvd7ilibbl3o73qmtkhohzwvh2b5gdrnqk6xi
-bafybeigkfxele4tlfqynuz6sqq75mv2zgckxv6vmlrqeuba2ocazvb7t34
 ***/
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC721{
