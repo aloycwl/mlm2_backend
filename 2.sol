@@ -18,8 +18,13 @@ interface IERC721Metadata{
     function symbol()external view returns(string memory);
     function tokenURI(uint)external view returns(string memory);
 }
-interface IERC20{function transferFrom(address,address,uint)external;}
-interface ISWAP{function getAmountsOut(uint,address,address)external view returns(uint);}
+interface IERC20{
+    function transferFrom(address,address,uint)external;
+    function balanceOf(address)external view returns(uint256);
+}
+interface ISWAP{
+    function getAmountsOut(uint,address,address)external view returns(uint);
+}
 contract ERC721AC_93N is IERC721,IERC721Metadata{
     struct User{
         address upline;
@@ -134,16 +139,30 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             user[a].packages.pop();
         }
     }}
+    function getUplines(address d0)private view returns(address d1,address d2,address d3){
+        (d1=user[d0].upline,d2=user[d1].upline,d3=user[d2].upline);
+    }
     function Purchase(address referral,uint n,uint c)external{unchecked{
-        //CHECK FOR THE SWAP PRICE TO LOCK TOKENS
         /*
         Tabulate total and fetch pricing
-        Transfer USDT to this contract as checking and redistribution (roll back if insufficient amount)
-        Loop through each count to add package
+        Set upline if non-existence and if no referral set to admin 
         */
         uint amt=node[n].price*c;
         uint _93n=ISWAP(_A[3]).getAmountsOut(amt,_A[1],_A[2])/c;
+        if(user[msg.sender].upline==address(0)){
+            user[msg.sender].upline=referral==address(0)||referral==msg.sender?_A[0]:referral;
+            user[referral].downline.push(msg.sender);
+        }
+        /*
+        Transfer USDT to this contract as checking and redistribution (roll back if insufficient amount)
+        Transfer to uplines and admin
+        */
+        (address d1,address d2,address d3)=getUplines(msg.sender); 
         IERC20(_A[1]).transferFrom(msg.sender,address(this),amt);
+        IERC20(_A[1]).transferFrom(address(this),d1,amt);
+        /*
+        Loop
+        */
         for(uint i;i<c;i++){
             
         }
