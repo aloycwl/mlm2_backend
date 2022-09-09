@@ -37,11 +37,9 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     struct Node{
         uint price;
         uint count;
-        uint shares;
-        uint day;
-        uint staking;
+        uint factor; //1-3: shares, 4-5: staking %
         uint[3]refA;
-        uint[3]refB;
+        uint[4]refB; //0-2: referrals, 3: days
         string uri;
     }
     mapping(uint=>address)private _A;
@@ -51,28 +49,29 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     mapping(uint=>address)private _tokenApprovals;
     mapping(address=>mapping(address=>bool))private _operatorApprovals;
     uint constant P=10000; //Percentage
+    uint public Share;
+    uint private _count;
 
     constructor(address USDT,address T93N,address Swap, address Tech){
         /*
         Add permanent packages for 0 and 4 to bypass payment checking
+        Initialise node: 1- Red Lion, 2- Green Lion, 3- Blue Lion, 4-Super Unicorn, 5-Asset Eagle
         */
         (_A[0]=user[msg.sender].upline=msg.sender,_A[1]=USDT,_A[2]=T93N,_A[3]=Swap,_A[4]=Tech);
+
+        /*** CHANGING THIS AS PACKAGES CHANGED ***/
         user[_A[0]].packages.push(0);
         user[_A[4]].packages.push(0);
-        /*
-        Initial node
-        1- Red Lion, 2- Green Lion, 3- Blue Lion, 4-Super Unicorn, 5-Asset Eagle
-        */
+
         node[1].refA=node[2].refA=node[3].refA=node[4].refA=node[5].refA=[500,300,200];
-        node[1].price=node[2].price=node[3].price=100;
-        node[4].refB=node[5].refB=[500,500,1000];
-        (node[1].count,node[1].shares,node[1].uri)=(250000,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
-        (node[2].count,node[2].shares,node[2].uri)=(150000,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
-        (node[3].count,node[3].shares,node[3].uri)=(100000,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
-        (node[4].count,node[4].price,node[4].day,node[4].staking,node[4].uri)=
-            (30000,1000,180,1,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
-        (node[5].count,node[5].price,node[5].day,node[5].staking,node[5].uri)=
-            (10000,5000,360,7,"bLKzHK2fCe4T8mdZ3NMk9yY4JwwNgS8gJeCfCEUmpkh7");
+        node[1].price=node[2].price=node[3].price=1e20;
+        (node[1].count,node[1].factor,node[1].uri)=(25e4,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
+        (node[2].count,node[2].factor,node[2].uri)=(15e4,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
+        (node[3].count,node[3].factor,node[3].uri)=(1e5,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
+        (node[4].count,node[4].price,node[4].refB,node[4].factor,node[4].uri)=
+            (3e4,1e21,[500,500,1000,180],1,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
+        (node[5].count,node[5].price,node[5].refB,node[5].factor,node[5].uri)=
+            (1e4,5e21,[500,500,1000,360],7,"bLKzHK2fCe4T8mdZ3NMk9yY4JwwNgS8gJeCfCEUmpkh7");
     }
     function supportsInterface(bytes4 a)external pure returns(bool){
         return a==type(IERC721).interfaceId||a==type(IERC721Metadata).interfaceId;
@@ -135,7 +134,18 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             user[a].packages.pop();
         }
     }}
-    function Purchase(address referral,uint node,uint count)external{unchecked{
-
+    function Purchase(address referral,uint n,uint c)external{unchecked{
+        //CHECK FOR THE SWAP PRICE TO LOCK TOKENS
+        /*
+        Tabulate total and fetch pricing
+        Transfer USDT to this contract as checking and redistribution (roll back if insufficient amount)
+        Loop through each count to add package
+        */
+        uint amt=node[n].price*c;
+        uint _93n=ISWAP(_A[3]).getAmountsOut(amt,_A[1],_A[2])/c;
+        IERC20(_A[1]).transferFrom(msg.sender,address(this),amt);
+        for(uint i;i<c;i++){
+            
+        }
     }}
 }
