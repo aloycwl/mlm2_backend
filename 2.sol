@@ -29,7 +29,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     struct User{
         address upline;
         address[]downline;
-        Pack[]pack;
+        uint[]pack;
     }
     struct Pack{
         uint deposit;
@@ -60,21 +60,21 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     constructor(address USDT,address T93N,address Swap, address Tech){
         /*
         Add permanent packages for 0 and 4 to bypass payment checking
-        Initialise node: 1- Red Lion, 2- Green Lion, 3- Blue Lion, 4-Super Unicorn, 5-Asset Eagle
+        Initialise node: 0- Red Lion, 1- Green Lion, 2- Blue Lion, 3-Super Unicorn, 4-Asset Eagle
         */
         (_A[0]=user[msg.sender].upline=msg.sender,_A[1]=USDT,_A[2]=T93N,_A[3]=Swap,_A[4]=Tech);
 
         /*** CHANGING THIS AS PACKAGES CHANGED ***/
-        user[_A[0]].packages.push(0);
-        user[_A[4]].packages.push(0);
+        //user[_A[0]].pack.push(0);
+        //user[_A[4]].pack.push(0);
 
-        node[1].price=node[2].price=node[3].price=1e20;
-        (node[1].count,node[1].factor,node[1].uri)=(25e4,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
-        (node[2].count,node[2].factor,node[2].uri)=(15e4,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
-        (node[3].count,node[3].factor,node[3].uri)=(1e5,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
-        (node[4].count,node[4].price,node[4].period,node[4].factor,node[4].uri)=
+        node[0].price=node[1].price=node[2].price=1e20;
+        (node[0].count,node[0].factor,node[0].uri)=(25e4,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
+        (node[1].count,node[1].factor,node[1].uri)=(15e4,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
+        (node[2].count,node[2].factor,node[2].uri)=(1e5,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
+        (node[3].count,node[3].price,node[3].period,node[3].factor,node[3].uri)=
             (3e4,1e21,180,1,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
-        (node[5].count,node[5].price,node[5].period,node[5].factor,node[5].uri)=
+        (node[4].count,node[4].price,node[4].period,node[4].factor,node[4].uri)=
             (1e4,5e21,360,7,"bLKzHK2fCe4T8mdZ3NMk9yY4JwwNgS8gJeCfCEUmpkh7");
     }
     function supportsInterface(bytes4 a)external pure returns(bool){
@@ -108,7 +108,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         return"93N";
     }
     function balanceOf(address a)external view override returns(uint){
-        return user[a].packages.length;
+        return user[a].pack.length;
     }
     function tokenURI(uint a)external view override returns(string memory){
         return string(abi.encodePacked("ipfs://Qm",node[a].uri));
@@ -126,16 +126,16 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         */
         require(a==pack[c].owner||getApproved(c)==a||isApprovedForAll(pack[c].owner,a));
         (_tokenApprovals[c],pack[c].owner)=(address(0),b);
-        user[b].packages.push(c);
+        //user[b].pack.push(c);
         popPackages(a,c);
         emit Approval(pack[c].owner,b,c);
         emit Transfer(a,b,c);
     }}
 
     function popPackages(address a,uint b)private{unchecked{
-        for(uint h=0;h<user[a].packages.length;h++)if(user[a].packages[h]==b){
-            user[a].packages[h]=user[a].packages[user[a].packages.length-1];
-            user[a].packages.pop();
+        for(uint h=0;h<user[a].pack.length;h++)if(user[a].pack[h]==b){
+            user[a].pack[h]=user[a].pack[user[a].pack.length-1];
+            user[a].pack.pop();
         }
     }}
     function getUplines(address d0)private view returns(address d1,address d2,address d3){
@@ -144,6 +144,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         d3=user[d2].upline;
     }
     function Purchase(address referral,uint n,uint c)external{unchecked{
+        require((n<3?node[0].count+node[1].count+node[2].count:node[n].count)>=c,"Insufficient nodes");
         /*
         Tabulate total and fetch pricing
         Set upline if non-existence and if no referral set to admin 
@@ -164,13 +165,30 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         for(uint i;i<3;i++)IERC20(_A[1]).transferFrom(address(this),d[i],amt*refA[i]/P);
         /*
         Loop to generate nodes (random if <3)
+        Check if node supply is valid and deduct after allocated
         Add shares if <3
         */
+        uint hash=uint(keccak256(abi.encodePacked(block.timestamp)));
         for(uint i;i<c;i++){
-            
-            if(n<4){
-
+            if(n<3){
+                uint num=uint(keccak256(abi.encodePacked(block.timestamp+i)))%3;
+                if(node[num].count<1){
+                    i++;
+                    continue;
+                }
+                //a[i]=num; user push package
             }
         }
     }}
+    function ZZZ()external view returns(uint[5]memory a){
+        //require((n<3?node[0].count+node[1].count+node[2].count:node[n].count)>=3e4);
+        for(uint i;i<5;i++){
+            uint num=uint(keccak256(abi.encodePacked(block.timestamp+i)))%3;
+            if(node[num].count<1){
+                i++;
+                continue;
+            }
+            a[i]=num;
+        }
+    }
 }
