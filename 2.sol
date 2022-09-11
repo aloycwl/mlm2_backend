@@ -29,10 +29,9 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     struct User{
         address upline;
         address[]downline;
-        uint[]packages;
+        Pack[]pack;
     }
     struct Pack{
-        uint wallet;
         uint deposit;
         uint tokens;
         uint claimed;
@@ -43,8 +42,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         uint price;
         uint count;
         uint factor; //1-3: shares, 4-5: staking %
-        uint[3]refA;
-        uint[4]refB; //0-2: referrals, 3: days
+        uint period;
         string uri;
     }
     mapping(uint=>address)private _A;
@@ -54,6 +52,8 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     mapping(uint=>address)private _tokenApprovals;
     mapping(address=>mapping(address=>bool))private _operatorApprovals;
     uint constant P=10000; //Percentage
+    uint[3]private refA=[500,300,200];
+    uint[3]private refB=[500,500,1000];
     uint public Share;
     uint private _count;
 
@@ -68,15 +68,14 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         user[_A[0]].packages.push(0);
         user[_A[4]].packages.push(0);
 
-        node[1].refA=node[2].refA=node[3].refA=node[4].refA=node[5].refA=[500,300,200];
         node[1].price=node[2].price=node[3].price=1e20;
         (node[1].count,node[1].factor,node[1].uri)=(25e4,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
         (node[2].count,node[2].factor,node[2].uri)=(15e4,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
         (node[3].count,node[3].factor,node[3].uri)=(1e5,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
-        (node[4].count,node[4].price,node[4].refB,node[4].factor,node[4].uri)=
-            (3e4,1e21,[500,500,1000,180],1,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
-        (node[5].count,node[5].price,node[5].refB,node[5].factor,node[5].uri)=
-            (1e4,5e21,[500,500,1000,360],7,"bLKzHK2fCe4T8mdZ3NMk9yY4JwwNgS8gJeCfCEUmpkh7");
+        (node[4].count,node[4].price,node[4].period,node[4].factor,node[4].uri)=
+            (3e4,1e21,180,1,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
+        (node[5].count,node[5].price,node[5].period,node[5].factor,node[5].uri)=
+            (1e4,5e21,360,7,"bLKzHK2fCe4T8mdZ3NMk9yY4JwwNgS8gJeCfCEUmpkh7");
     }
     function supportsInterface(bytes4 a)external pure returns(bool){
         return a==type(IERC721).interfaceId||a==type(IERC721Metadata).interfaceId;
@@ -140,7 +139,9 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         }
     }}
     function getUplines(address d0)private view returns(address d1,address d2,address d3){
-        (d1=user[d0].upline,d2=user[d1].upline,d3=user[d2].upline);
+        d1=user[d0].upline;
+        d2=user[d1].upline;
+        d3=user[d2].upline;
     }
     function Purchase(address referral,uint n,uint c)external{unchecked{
         /*
@@ -157,14 +158,19 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Transfer USDT to this contract as checking and redistribution (roll back if insufficient amount)
         Transfer to uplines and admin
         */
-        (address d1,address d2,address d3)=getUplines(msg.sender); 
+        address[3]memory d;
+        (d[0],d[1],d[2])=getUplines(msg.sender); 
         IERC20(_A[1]).transferFrom(msg.sender,address(this),amt);
-        IERC20(_A[1]).transferFrom(address(this),d1,amt);
+        for(uint i;i<3;i++)IERC20(_A[1]).transferFrom(address(this),d[i],amt*refA[i]/P);
         /*
-        Loop
+        Loop to generate nodes (random if <3)
+        Add shares if <3
         */
         for(uint i;i<c;i++){
             
+            if(n<4){
+
+            }
         }
     }}
 }
