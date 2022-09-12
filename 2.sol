@@ -1,3 +1,10 @@
+/***
+Purchase: check upline eligible to matching
+Purchase: issue tokens to upline?
+Check withdrawal amount
+Change withdraw to individual
+Change to 180/360 days
+***/
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC721{event Transfer(address indexed from,address indexed to,uint indexed tokenId);event Approval(address indexed owner,address indexed approved,uint indexed tokenId);event ApprovalForAll(address indexed owner,address indexed operator,bool approved);function balanceOf(address)external view returns(uint);function ownerOf(uint)external view returns(address);function safeTransferFrom(address,address,uint)external;function transferFrom(address,address,uint)external;function approve(address,uint)external;function getApproved(uint)external view returns(address);function setApprovalForAll(address,bool)external;function isApprovedForAll(address,address)external view returns(bool);function safeTransferFrom(address,address,uint,bytes calldata)external;}
 interface IERC721Metadata{function name()external view returns(string calldata);function symbol()external view returns(string calldata);function tokenURI(uint)external view returns(string calldata);}
@@ -24,7 +31,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         string uri;
     }
     mapping(uint=>address)private _A;
-    mapping(address=>User)private user;
+    mapping(address=>User)public user;
     mapping(uint=>Node)private node;
     mapping(uint=>Pack)public pack;
     mapping(uint=>address)private _tokenApprovals;
@@ -43,8 +50,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         (_A[0]=user[msg.sender].upline=msg.sender,_A[1]=USDT,_A[2]=T93N,_A[3]=Swap,_A[4]=Tech);
         user[_A[0]].pack.push(0);
         user[_A[4]].pack.push(0);
-        node[0].price=node[1].price=node[2].price=1e20;
-        (node[0].count,node[0].factor,node[0].uri)=(25e4,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
+        (node[0].count,node[0].price,node[0].factor,node[0].uri)=(25e4,node[1].price=node[2].price=1e20,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
         (node[1].count,node[1].factor,node[1].uri)=(15e4,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
         (node[2].count,node[2].factor,node[2].uri)=(1e5,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
         (node[3].count,node[3].price,node[3].period,node[3].factor,node[3].uri)=(3e4,1e21,180,1,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
@@ -70,20 +76,63 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         */
         require(a==pack[c].owner||getApproved(c)==a||isApprovedForAll(pack[c].owner,a));
         (_tokenApprovals[c],pack[c].owner)=(address(0),b);
-        //user[b].pack.push(c);
+        user[b].pack.push(c);
         popPackages(a,c);
         emit Approval(pack[c].owner,b,c);
         emit Transfer(a,b,c);
     }}
 
-    function popPackages(address a,uint b)private{unchecked{
-        for(uint h=0;h<user[a].pack.length;h++)if(user[a].pack[h]==b){
-            user[a].pack[h]=user[a].pack[user[a].pack.length-1];
+    function popPackages(address a,uint p)private{unchecked{
+        /*
+        To remove a package from user
+        Can be used for transfer, merging or expiry
+        */
+        for(uint i;i<user[a].pack.length;i++)if(user[a].pack[i]==p){
+            user[a].pack[i]=user[a].pack[user[a].pack.length-1];
             user[a].pack.pop();
         }
     }}
+    function mintNFT(uint n)private{unchecked{
+        _count++;
+        node[n].count--;
+        emit Transfer(address(0),msg.sender,_count);
+    }}
     function getUplines(address d0)private view returns(address d1,address d2,address d3){
+        /*
+        Returns the upline for the address
+        d1 being the direct and d3 is the furthest
+        If there is no d2 or d3, the upline is the last available one
+        */
         (d1=user[d0].upline,d2=user[d1].upline,d3=user[d2].upline);
+    }
+    function getDownlines(address a)external view returns(address[]memory lv1,uint lv2,uint lv3){unchecked{
+        /*
+        Loop through all level 2 and level 3 downlines
+        Create new array counts
+        Set length and reset variables 
+        */
+        lv1=user[a].downline;
+        for(uint i=0;i<lv1.length;i++){
+            address[]memory c1=user[lv1[i]].downline;
+            lv2+=c1.length;
+            for(uint j=0;j<c1.length;j++)lv3+=user[c1[j]].downline.length;
+        }
+    }}
+    function checkMatchable(address a)private view returns(uint){unchecked{
+        /*
+        Loop through the user's entire pack
+        Select check if there is any Super or Asset node
+        Return 1 if found and 0 if isn't
+        */
+        for(uint i;i<user[a].pack.length;i++)if(pack[user[a].pack[i]].node>2)return 1;
+        return 0;
+    }}
+    function getStaking()public view returns(uint){
+        /*
+        Calculate how much tbe sender should be getting
+        Loop through all existing nodes and check the expiry
+        */
+
     }
     function Purchase(address referral,uint n,uint c)external{unchecked{
         require((n<3?node[0].count+node[1].count+node[2].count:node[n].count)>=c,"Insufficient nodes");
@@ -119,12 +168,26 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
                     continue;
                 }else Share+=node[num].factor;
             }else num=n;
-            _count++;
+            mintNFT(num);
             Pack storage p=pack[_count];
-            (p.node,p.owner,p.t93n)=(num,msg.sender,t93n);
-            p.joined=p.claimed=block.timestamp;
+            (p.node,p.owner,p.t93n,p.joined)=(num,msg.sender,t93n,p.claimed=block.timestamp);
             user[msg.sender].pack.push(_count);
-            emit Transfer(address(0),msg.sender,_count);
+            
         }
     }}
-}
+    function Merging(uint[]calldata nfts)external{
+        require(nfts.length==10||nfts.length==50,"Incorrect nodes count");
+        /*
+        Combines nodes to Super or Asset
+        Loop through user's club - pop it and remove shares
+        Mint new nodes and update
+        */
+        for(uint i;i<nfts.length;i++){
+            require(pack[nfts[i]].node<3,"Only club nodes can merge");
+            popPackages(msg.sender,nfts[i]);
+            Share-=node[nfts[i]].factor;
+            emit Transfer(msg.sender,address(0),nfts[i]);
+        }
+        mintNFT(nfts.length==10?3:4);
+    }
+} 
