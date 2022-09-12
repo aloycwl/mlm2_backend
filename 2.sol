@@ -178,40 +178,14 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         for(uint i;i<user[a].pack.length;i++)if(pack[user[a].pack[i]].node>2)return 1;
         return 0;
     }}
-    function Withdraw()external{
-        /*
-        Calculate how much tbe sender should be getting
-        Loop through all existing nodes and calculate since last claimed
-        Get the expiry and issue percentage when expired
-        */
-        uint x;
-        uint[]memory p=user[msg.sender].pack;
-        for(uint i;i<p.length;i++){
-            uint z;
-            if(pack[user[msg.sender].pack[i]].node>2){
-                uint expiry=pack[p[i]].minted+node[p[i]].period;
-                if(expiry<block.timestamp)
-                    x+=pack[p[i]].t93n*node[p[i]].factor/P*(block.timestamp-pack[p[i]].claimed)/86400;
-                else{
-                    if(expiry+2628e3>block.timestamp&&expiry+2628e3>pack[p[i]].claimed)x+=pack[p[i]].t93n*2/5;
-                    if(expiry+5256e3>block.timestamp&&expiry+5256e3>pack[p[i]].claimed)x+=pack[p[i]].t93n*3/10;
-                    if(expiry+7884e3>block.timestamp&&expiry+5256e3>pack[p[i]].claimed){
-                        x+=pack[p[i]].t93n*3/10;
-                        popPackages(msg.sender,p[i]);
-                        emit Transfer(msg.sender,address(0),p[i]);
-                        z=1;
-                    }
-                }
-            }
-            if(z<1)pack[p[i]].claimed=block.timestamp;
-        }
-        IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
-    }
-    function getNodes()external view returns(uint[]memory n){unchecked{
+    function getNodes()external view returns(uint[]memory,uint[]memory){unchecked{
         /*
         Return the current user nodes for selection to merge
+        Return also the node type for each node
         */
-        n=user[msg.sender].pack;
+        uint[]memory p=new uint[](user[msg.sender].pack.length);
+        for(uint i;i<user[msg.sender].pack.length;i++)p[i]=pack[user[msg.sender].pack[i]].node;
+        return(user[msg.sender].pack,p);
     }}
     function Purchase(address referral,uint n,uint c)external{unchecked{
         require((n<3?node[0].count+node[1].count+node[2].count:node[n].count)>=c,"Insufficient nodes");
@@ -253,6 +227,35 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             user[msg.sender].pack.push(_count);
         }
     }}
+    function Withdraw()external{
+        /*
+        Calculate how much tbe sender should be getting
+        Loop through all existing nodes and calculate since last claimed
+        Get the expiry and issue percentage when expired
+        */
+        uint x;
+        uint[]memory p=user[msg.sender].pack;
+        for(uint i;i<p.length;i++){
+            uint z;
+            if(pack[user[msg.sender].pack[i]].node>2){
+                uint expiry=pack[p[i]].minted+node[p[i]].period;
+                if(expiry<block.timestamp)
+                    x+=pack[p[i]].t93n*node[p[i]].factor/P*(block.timestamp-pack[p[i]].claimed)/86400;
+                else{
+                    if(expiry+2628e3>block.timestamp&&expiry+2628e3>pack[p[i]].claimed)x+=pack[p[i]].t93n*2/5;
+                    if(expiry+5256e3>block.timestamp&&expiry+5256e3>pack[p[i]].claimed)x+=pack[p[i]].t93n*3/10;
+                    if(expiry+7884e3>block.timestamp&&expiry+5256e3>pack[p[i]].claimed){
+                        x+=pack[p[i]].t93n*3/10;
+                        popPackages(msg.sender,p[i]);
+                        emit Transfer(msg.sender,address(0),p[i]);
+                        z=1;
+                    }
+                }
+            }
+            if(z<1)pack[p[i]].claimed=block.timestamp;
+        }
+        IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
+    }
     function Merging(uint[]calldata nfts)external{
         require(nfts.length==10||nfts.length==50,"Incorrect nodes count");
         /*
