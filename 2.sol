@@ -1,6 +1,5 @@
 /***
-Withdrawal: stacking give to upline too?
-Renewal: Super node upon full expiry (existing tokens will be transferred to wallet
+All the transfer functions please check
 ***/
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC721{
@@ -74,7 +73,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         (node[1].count,node[1].factor,node[1].uri)=(15e4,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
         (node[2].count,node[2].factor,node[2].uri)=(1e5,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
         (node[3].count,node[3].price,node[3].period,node[3].factor,node[3].uri)=
-            (3e4,1e21,15552e3,10,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
+            (4e4,1e21,15552e3,10,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
         (node[4].count,node[4].price,node[4].period,node[4].factor,node[4].uri)=
             (1e4,5e21,31104e3,7,"bLKzHK2fCe4T8mdZ3NMk9yY4JwwNgS8gJeCfCEUmpkh7");
     }
@@ -184,10 +183,10 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Return the node number with the longest expiry
         */
         uint largest;
-        uint[]memory u=user[a].pack;
-        for(uint i;i<u.length;i++){
-            uint tempL=pack[u[i]].minted+node[pack[u[i]].node].period;
-            if(pack[u[i]].node>2&&tempL>largest)(n,largest)=(u[i],tempL);
+        uint[]memory p=user[a].pack;
+        for(uint i;i<p.length;i++){
+            uint tempL=pack[p[i]].minted+node[pack[p[i]].node].period;
+            if(pack[p[i]].node>2&&tempL>largest)(n,largest)=(p[i],tempL);
         }
     }}
     function Purchase(address referral,uint n,uint c)external{unchecked{
@@ -271,7 +270,12 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Transfer to upline's wallet if they are eligible
         */
         IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
-        /*******************/
+        address[3]memory d;
+        (d[0],d[1],d[2])=getUplines(msg.sender); 
+        for(uint i;i<3;i++){
+            uint cm=checkMatchable(d[i]);
+            if(cm>0)IERC20(_A[2]).transferFrom(address(this),d[i],x*refB[i]/P);
+        }
     }
     function Merging(uint[]calldata nfts)external{
         require(nfts.length==10||nfts.length==50,"Incorrect nodes count");
@@ -288,4 +292,16 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         }
         mintNFT(nfts.length==10?3:4);
     }
+    function RenewSuperNode(uint n)external{unchecked{
+        Pack storage p=pack[n];
+        require(p.owner==msg.sender,"Incorrect owner");
+        require(p.claimed+node[p.node].period>block.timestamp,"Node not expired yet");
+        /*
+        Renew Super node upon expiry + 1 month
+        Reset all settings and refill the node like new
+        */
+        uint t93n=ISWAP(_A[3]).getAmountsOut(node[p.node].price,_A[1],_A[2]);
+        IERC20(_A[2]).transferFrom(msg.sender,address(this),t93n);
+        (p.t93n,p.minted)=(t93n,p.claimed=block.timestamp);
+    }}
 } 
