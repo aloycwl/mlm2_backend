@@ -1,6 +1,8 @@
 /***
 Share portion distribution
 ***/
+//0x0000000000000000000000000000000000000000
+//1000000000000000000000
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC721{
     event Transfer(address indexed from,address indexed to,uint indexed tokenId);
@@ -137,23 +139,25 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         To remove a package from user
         Can be used for transfer, merging or expiry
         */
-        for(uint i;i<user[a].pack.length;i++)if(user[a].pack[i]==p){
-            user[a].pack[i]=user[a].pack[user[a].pack.length-1];
-            user[a].pack.pop();
+        uint[]storage s=user[a].pack;
+        for(uint i;i<s.length;i++)if(s[i]==p){
+            s[i]=s[s.length-1];
+            s.pop();
         }
     }}
-    function mintNFT(uint n)private{unchecked{
+    function mintNFT(uint n,uint t)private{unchecked{
         _count++;
-        node[n].count--;
+        user[msg.sender].pack.push(_count);
+        Pack storage p=pack[_count];
+        (p.node,p.owner,p.t93n,p.minted)=(n,msg.sender,t,p.claimed=block.timestamp);
         emit Transfer(address(0),msg.sender,_count);
     }}
-    function getUplines(address d0)private view returns(address d1,address d2,address d3){
+    function getUplines(address u)private view returns(address[3]memory d){
         /*
-        Returns the upline for the address
-        d1 being the direct and d3 is the furthest
-        If there is no d2 or d3, the upline is the last available one
+        d[0] being the direct and d[2] is the furthest
+        If there is no d[1] or d[2], the upline is the last available one
         */
-        (d1=user[d0].upline,d2=user[d1].upline,d3=user[d2].upline);
+        (d[0]=user[u].upline,d[1]=user[d[0]].upline,d[2]=user[d[1]].upline);
     }
     function getDownlines(address a)external view returns(address[]memory lv1,uint lv2,uint lv3){unchecked{
         /*
@@ -168,14 +172,13 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             for(uint j=0;j<c1.length;j++)lv3+=user[c1[j]].downline.length;
         }
     }}
-    function getNodes()external view returns(uint[]memory,uint[]memory){unchecked{
+    function getNodes()external view returns(uint[]memory a,uint[]memory p){unchecked{
         /*
         Return the current user nodes for selection to merge
         Return also the node type for each node
         */
-        uint[]memory p=new uint[](user[msg.sender].pack.length);
-        for(uint i;i<user[msg.sender].pack.length;i++)p[i]=pack[user[msg.sender].pack[i]].node;
-        return(user[msg.sender].pack,p);
+        (a=user[msg.sender].pack,p=new uint[](a.length));
+        for(uint i;i<p.length;i++)p[i]=pack[a[i]].node;
     }}
     function checkMatchable(address a)private view returns(uint n){unchecked{
         /*
@@ -183,8 +186,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Select check if there is any Super or Asset node
         Return the node number with the longest expiry
         */
-        uint largest;
-        uint[]memory p=user[a].pack;
+        (uint largest,uint[]memory p)=(0,user[a].pack);
         for(uint i;i<p.length;i++){
             uint tempL=pack[p[i]].minted+node[pack[p[i]].node].period;
             if(pack[p[i]].node>2&&tempL>largest)(n,largest)=(p[i],tempL);
@@ -200,15 +202,14 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         uint t93n=ISWAP(_A[3]).getAmountsOut(amt,_A[1],_A[2]);
         if(user[msg.sender].upline==address(0)){
             user[msg.sender].upline=referral==address(0)||referral==msg.sender?_A[0]:referral;
-            user[referral].downline.push(msg.sender);
+            user[user[msg.sender].upline].downline.push(msg.sender);
         }
         /*
-        Transfer USDT to this contract as checking and redistribution (roll back if insufficient amount)
+        Transfer USDT to this contract as checking and redistribution
         Check if user have super or asset node and give extra staking
         */
-        address[3]memory d;
-        (d[0],d[1],d[2])=getUplines(msg.sender); 
         IERC20(_A[1]).transferFrom(msg.sender,address(this),amt);
+        address[3]memory d=getUplines(msg.sender); 
         for(uint i;i<3;i++){
             IERC20(_A[1]).transferFrom(address(this),d[i],amt*refA[i]/P);
             uint cm=checkMatchable(d[i]);
@@ -229,10 +230,8 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
                     continue;
                 }else Share+=node[num].factor;
             }else num=n;
-            mintNFT(num);
-            Pack storage p=pack[_count];
-            (p.node,p.owner,p.t93n,p.minted)=(num,msg.sender,t93n,p.claimed=block.timestamp);
-            user[msg.sender].pack.push(_count);
+            mintNFT(num,t93n);
+            node[n].count--;
         }
     }}
     function Withdraw()external{
@@ -241,23 +240,22 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Loop through all existing nodes and calculate since last claimed
         Get the expiry and issue percentage when expired
         */
-        uint x;
-        uint[]memory p=user[msg.sender].pack;
+        (uint x,uint[]memory p)=(0,user[msg.sender].pack);
         for(uint i;i<p.length;i++){
-            uint z;
-            if(pack[p[i]].node>2){
-                uint expiry=pack[p[i]].minted+node[p[i]].period;
+            (uint z,Pack storage s)=(0,pack[p[i]]);
+            if(s.node>2){
+                uint expiry=s.minted+node[p[i]].period;
                 if(expiry<block.timestamp)
-                    x+=pack[p[i]].t93n*node[p[i]].factor/P*(block.timestamp-pack[p[i]].claimed)/86400;
+                    x+=s.t93n*node[p[i]].factor/P*(block.timestamp-s.claimed)/86400;
                 else{
                     uint y=expiry+2628e3;
-                    if(y>block.timestamp&&y>pack[p[i]].claimed)(y=pack[p[i]].t93n*2/5,x+=y,pack[p[i]].t93n-=y);
+                    if(y>block.timestamp&&y>s.claimed)(y=s.t93n*2/5,x+=y,s.t93n-=y);
                     y=expiry+5256e3;
-                    if(y>block.timestamp&&y>pack[p[i]].claimed)(y=pack[p[i]].t93n/2,x+=y,pack[p[i]].t93n-=y);
+                    if(y>block.timestamp&&y>s.claimed)(y=s.t93n/2,x+=y,s.t93n-=y);
                     y=expiry+7884e3;
-                    if(y>block.timestamp&&y>pack[p[i]].claimed){
-                        (y=pack[p[i]].t93n,x+=y,pack[p[i]].t93n-=y);
-                        if(pack[p[i]].node==4){
+                    if(y>block.timestamp&&y>s.claimed){
+                        (y=s.t93n,x+=y,s.t93n-=y);
+                        if(s.node==4){
                             popPackages(msg.sender,p[i]);
                             emit Transfer(msg.sender,address(0),p[i]);
                             z=1;
@@ -266,15 +264,14 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
                     }
                 }
             }
-            if(z<1)pack[p[i]].claimed=block.timestamp;
+            if(z<1)s.claimed=block.timestamp;
         }
         /*
         Transfer to user's wallet
         Transfer to upline's wallet if they are eligible
         */
         IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
-        address[3]memory d;
-        (d[0],d[1],d[2])=getUplines(msg.sender); 
+        address[3]memory d=getUplines(msg.sender); 
         for(uint i;i<3;i++){
             uint cm=checkMatchable(d[i]);
             if(cm>0)IERC20(_A[2]).transferFrom(address(this),d[i],x*refB[i]/P);
@@ -293,7 +290,9 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             Share-=node[nfts[i]].factor;
             emit Transfer(msg.sender,address(0),nfts[i]);
         }
-        mintNFT(nfts.length==10?3:4);
+        uint n=nfts.length==10?3:4;
+        uint t93n=ISWAP(_A[3]).getAmountsOut(node[n].price,_A[1],_A[2]);
+        mintNFT(n,t93n);
     }
     function RenewSuperNode(uint n)external{unchecked{
         Pack storage p=pack[n];
