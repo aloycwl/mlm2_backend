@@ -1,6 +1,3 @@
-/***
-Share portion distribution
-***/
 //0x0000000000000000000000000000000000000000
 //1000000000000000000000
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
@@ -46,6 +43,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     struct Node{
         uint price;
         uint count;
+        uint total; //1-3: shares, 4-5: total
         uint factor; //1-3: shares, 4-5: staking %
         uint period;
         string uri;
@@ -56,18 +54,17 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     mapping(address=>mapping(address=>bool))private _operatorApprovals;
     mapping(address=>User)public user;
     mapping(uint=>Pack)public pack;
-    uint constant private P=10000; //Percentage
-    uint[3]private refA=[500,300,200];
-    uint[3]private refB=[500,500,1e3];
+    uint constant private P=1e4; //Percentage
+    uint[3]private refA=[5e2,3e2,2e2];
+    uint[3]private refB=[5e2,5e2,1e3];
     uint private _count; //For unique NFT
-    uint public Share;
 
     constructor(address USDT,address T93N,address Swap, address Tech){
         /*
-        Add permanent packages for 0 and 4 to bypass payment checking
-        Initialise node: 0- Red Lion, 1- Green Lion, 2- Blue Lion, 3-Super Unicorn, 4-Asset Eagle
+        Add permanent packages for 0 and 4 to bypass payment checking and enable withdrawal
+        Initialise node: 0-Red Lion, 1-Green Lion, 2-Blue Lion, 3-Super Unicorn, 4-Asset Eagle
         */
-        (_A[0]=user[msg.sender].upline=msg.sender,_A[1]=USDT,_A[2]=T93N,_A[3]=Swap,_A[4]=Tech);
+        (_A[0],_A[1],_A[2],_A[3],_A[4],pack[0].node)=(user[msg.sender].upline=msg.sender,USDT,T93N,Swap,Tech,3);
         user[_A[0]].pack.push(0);
         user[_A[4]].pack.push(0);
         (node[0].count,node[0].price,node[0].factor,node[0].uri)=
@@ -146,7 +143,12 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         }
     }}
     function mintNFT(uint n,uint t)private{unchecked{
-        _count++;
+        /*
+        Update main counter and total count per node type
+        Update user pack
+        Update pack details
+        */
+        (_count++,node[n<3?0:n].total+=n<3?node[n].factor:1);
         user[msg.sender].pack.push(_count);
         Pack storage p=pack[_count];
         (p.node,p.owner,p.t93n,p.minted)=(n,msg.sender,t,p.claimed=block.timestamp);
@@ -196,12 +198,13 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         require((n<3?node[0].count+node[1].count+node[2].count:node[n].count)>=c,"Insufficient nodes");
         /*
         Tabulate total and fetch pricing
-        Set upline if non-existence and if no referral set to admin 
+        Set upline if non-existence, if no referral or no package set to admin 
         */
         uint amt=node[n].price*c;
         uint t93n=ISWAP(_A[3]).getAmountsOut(amt,_A[1],_A[2]);
         if(user[msg.sender].upline==address(0)){
-            user[msg.sender].upline=referral==address(0)||referral==msg.sender?_A[0]:referral;
+            user[msg.sender].upline=referral==
+                address(0)||referral==msg.sender||user[referral].pack.length<1?_A[0]:referral;
             user[user[msg.sender].upline].downline.push(msg.sender);
         }
         /*
@@ -228,7 +231,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
                 if(node[num].count<1){
                     i++;
                     continue;
-                }else Share+=node[num].factor;
+                }
             }else num=n;
             mintNFT(num,t93n);
             node[n].count--;
@@ -240,13 +243,17 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Loop through all existing nodes and calculate since last claimed
         Get the expiry and issue percentage when expired
         */
-        (uint x,uint[]memory p)=(0,user[msg.sender].pack);
+        uint x;
+        uint t;
+        uint[]memory p=user[msg.sender].pack;
         for(uint i;i<p.length;i++){
-            (uint z,Pack storage s)=(0,pack[p[i]]);
-            if(s.node>2){
+            uint z;
+            Pack storage s=pack[p[i]];
+            if(s.node<3)t+=node[p[i]].factor;
+            else{
                 uint expiry=s.minted+node[p[i]].period;
                 if(expiry<block.timestamp)
-                    x+=s.t93n*node[p[i]].factor/P*(block.timestamp-s.claimed)/86400;
+                    t+=s.t93n*node[p[i]].factor/P*(block.timestamp-s.claimed)/86400;
                 else{
                     uint y=expiry+2628e3;
                     if(y>block.timestamp&&y>s.claimed)(y=s.t93n*2/5,x+=y,s.t93n-=y);
@@ -267,9 +274,11 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             if(z<1)s.claimed=block.timestamp;
         }
         /*
+        Calculate club node share (if any)
         Transfer to user's wallet
         Transfer to upline's wallet if they are eligible
         */
+        if(t>0)x+=(node[3].total*node[3].factor/P+node[4].total*node[4].factor/P)/20*t/node[0].total;
         IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
         address[3]memory d=getUplines(msg.sender); 
         for(uint i;i<3;i++){
@@ -287,7 +296,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         for(uint i;i<nfts.length;i++){
             require(pack[nfts[i]].node<3,"Only club nodes can merge");
             popPackages(msg.sender,nfts[i]);
-            Share-=node[nfts[i]].factor;
+            node[0].total-=node[nfts[i]].factor;
             emit Transfer(msg.sender,address(0),nfts[i]);
         }
         uint n=nfts.length==10?3:4;
