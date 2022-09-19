@@ -1,5 +1,6 @@
 //0x0000000000000000000000000000000000000000
-//1000000000000000000000
+//100000000000000000000000
+//1000000000000000000
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC721{
     event Transfer(address indexed from,address indexed to,uint indexed tokenId);
@@ -55,8 +56,8 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     mapping(address=>User)public user;
     mapping(uint=>Pack)public pack;
     uint constant private P=1e4; //Percentage
-    uint[3]private refA=[5e2,3e2,2e2];
-    uint[3]private refB=[5e2,5e2,1e3];
+    uint[4]private refA=[5e2,3e2,2e2,1e2];
+    uint[4]private refB=[5e2,5e2,1e3,1e2];
     uint private _count; //For unique NFT
 
     constructor(address USDT,address T93N,address Swap, address Tech){
@@ -154,12 +155,12 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         (p.node,p.owner,p.t93n,p.minted)=(n,msg.sender,t,p.claimed=block.timestamp);
         emit Transfer(address(0),msg.sender,_count);
     }}
-    function getUplines(address u)private view returns(address[3]memory d){
+    function getUplines(address u)private view returns(address[4]memory d){
         /*
         d[0] being the direct and d[2] is the furthest
         If there is no d[1] or d[2], the upline is the last available one
         */
-        (d[0]=user[u].upline,d[1]=user[d[0]].upline,d[2]=user[d[1]].upline);
+        (d[0]=user[u].upline,d[1]=user[d[0]].upline,d[2]=user[d[1]].upline,d[3]=_A[4]);
     }
     function getDownlines(address a)external view returns(address[]memory lv1,uint lv2,uint lv3){unchecked{
         /*
@@ -212,8 +213,8 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Check if user have super or asset node and give extra staking
         */
         IERC20(_A[1]).transferFrom(msg.sender,address(this),amt);
-        address[3]memory d=getUplines(msg.sender); 
-        for(uint i;i<3;i++){
+        address[4]memory d=getUplines(msg.sender); 
+        for(uint i;i<d.length;i++){
             IERC20(_A[1]).transferFrom(address(this),d[i],amt*refA[i]/P);
             uint cm=checkMatchable(d[i]);
             if(cm>0)pack[cm].t93n+=refB[i]/P;
@@ -237,7 +238,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             node[n].count--;
         }
     }}
-    function Withdraw()external{
+    function Withdraw()external{unchecked{
         /*
         Calculate how much tbe sender should be getting
         Loop through all existing nodes and calculate since last claimed
@@ -280,13 +281,13 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         */
         if(t>0)x+=(node[3].total*node[3].factor/P+node[4].total*node[4].factor/P)/20*t/node[0].total;
         IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
-        address[3]memory d=getUplines(msg.sender); 
-        for(uint i;i<3;i++){
+        address[4]memory d=getUplines(msg.sender); 
+        for(uint i;i<d.length;i++){
             uint cm=checkMatchable(d[i]);
             if(cm>0)IERC20(_A[2]).transferFrom(address(this),d[i],x*refB[i]/P);
         }
-    }
-    function Merging(uint[]calldata nfts)external{
+    }}
+    function Merging(uint[]calldata nfts)external{unchecked{
         require(nfts.length==10||nfts.length==50,"Incorrect nodes count");
         /*
         Combines nodes to Super or Asset
@@ -302,7 +303,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         uint n=nfts.length==10?3:4;
         uint t93n=ISWAP(_A[3]).getAmountsOut(node[n].price,_A[1],_A[2]);
         mintNFT(n,t93n);
-    }
+    }}
     function RenewSuperNode(uint n)external{unchecked{
         Pack storage p=pack[n];
         require(p.owner==msg.sender,"Incorrect owner");
@@ -314,5 +315,13 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         uint t93n=ISWAP(_A[3]).getAmountsOut(node[p.node].price,_A[1],_A[2]);
         IERC20(_A[2]).transferFrom(msg.sender,address(this),t93n);
         (p.t93n,p.minted)=(t93n,p.claimed=block.timestamp);
+    }}
+    function modLiquidity(uint t,uint n,uint m)external{unchecked{
+        /*
+        Add or remove coin
+        */
+        require(_A[0]==msg.sender,"Invalid access");
+        if(n>0)IERC20(_A[t]).transferFrom(msg.sender,address(this),n);
+        else IERC20(_A[t]).transferFrom(address(this),msg.sender,m);
     }}
 } 
