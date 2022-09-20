@@ -1,6 +1,8 @@
 //0x0000000000000000000000000000000000000000
 //100000000000000000000000
 //1000000000000000000
+//["0xd9145CCE52D386f254917e481eB44e9943F39138","0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8","0xf8e81D47203A594245E36C48e151709F0C19fBe8","0xdD870fA1b7C4700F2BD7f44238821C26f7392148"]
+//["0x8389DC8Cc460198703ee461160Acb51d36a25e63","0x9B882c3fFCb41Ca2Fe1e1F2F63a58D333B81eB03","0x53F1F064473eA19012FdF577D30b77c880473328","0x6B62b1Dd546DE2264FC7Dd0ec32A622D2717b0c7"]
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC721{
     event Transfer(address indexed from,address indexed to,uint indexed tokenId);
@@ -49,23 +51,24 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         uint period;
         string uri;
     }
+    event Payout(address indexed from,address indexed to,uint amount,uint indexed status); //0-U, 1-N
     mapping(uint=>address)private _A;
     mapping(uint=>Node)private node;
     mapping(uint=>address)private _tokenApprovals;
     mapping(address=>mapping(address=>bool))private _operatorApprovals;
-    mapping(address=>User)public user;
+    mapping(address=>User)private user;
     mapping(uint=>Pack)public pack;
     uint constant private P=1e4; //Percentage
     uint[4]private refA=[5e2,3e2,2e2,1e2];
     uint[4]private refB=[5e2,5e2,1e3,1e2];
     uint private _count; //For unique NFT
 
-    constructor(address USDT,address T93N,address Swap, address Tech){
+    constructor(address[4]memory A){
         /*
         Add permanent packages for 0 and 4 to bypass payment checking and enable withdrawal
         Initialise node: 0-Red Lion, 1-Green Lion, 2-Blue Lion, 3-Super Unicorn, 4-Asset Eagle
         */
-        (_A[0],_A[1],_A[2],_A[3],_A[4],pack[0].node)=(user[msg.sender].upline=msg.sender,USDT,T93N,Swap,Tech,3);
+        (_A[0],_A[1],_A[2],_A[3],_A[4],pack[0].node)=(user[msg.sender].upline=msg.sender,A[0],A[1],A[2],A[3],3);
         user[_A[0]].pack.push(0);
         user[_A[4]].pack.push(0);
         (node[0].count,node[0].price,node[0].factor,node[0].uri)=
@@ -131,7 +134,6 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         emit Approval(pack[p].owner,b,p);
         emit Transfer(a,b,p);
     }}
-
     function popPackages(address a,uint p)private{unchecked{
         /*
         To remove a package from user
@@ -175,13 +177,13 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             for(uint j=0;j<c1.length;j++)lv3+=user[c1[j]].downline.length;
         }
     }}
-    function getNodes()external view returns(uint[]memory a,uint[]memory p){unchecked{
+    function getNodes(address a)external view returns(uint[]memory u,uint[]memory p){unchecked{
         /*
         Return the current user nodes for selection to merge
         Return also the node type for each node
         */
-        (a=user[msg.sender].pack,p=new uint[](a.length));
-        for(uint i;i<p.length;i++)p[i]=pack[a[i]].node;
+        (u=user[a].pack,p=new uint[](u.length));
+        for(uint i;i<p.length;i++)p[i]=pack[u[i]].node;
     }}
     function checkMatchable(address a)private view returns(uint n){unchecked{
         /*
@@ -215,8 +217,9 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         IERC20(_A[1]).transferFrom(msg.sender,address(this),amt);
         address[4]memory d=getUplines(msg.sender); 
         for(uint i;i<d.length;i++){
-            IERC20(_A[1]).transferFrom(address(this),d[i],amt*refA[i]/P);
-            uint cm=checkMatchable(d[i]);
+            (uint amtP,uint cm)=(amt*refA[i]/P,checkMatchable(d[i]));
+            IERC20(_A[1]).transferFrom(address(this),d[i],amtP);
+            emit Payout(msg.sender,d[i],amtP,0);
             if(cm>0)pack[cm].t93n+=refB[i]/P;
         }
         /*
@@ -284,7 +287,11 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         address[4]memory d=getUplines(msg.sender); 
         for(uint i;i<d.length;i++){
             uint cm=checkMatchable(d[i]);
-            if(cm>0)IERC20(_A[2]).transferFrom(address(this),d[i],x*refB[i]/P);
+            if(cm>0){
+                uint amtP=x*refB[i]/P;
+                IERC20(_A[2]).transferFrom(address(this),d[i],amtP);
+                emit Payout(msg.sender,d[i],amtP,1);
+            }
         }
     }}
     function Merging(uint[]calldata nfts)external{unchecked{
