@@ -52,7 +52,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         string uri;
     }
     event Payout(address indexed from,address indexed to,uint amount,uint indexed status); //0-U, 1-N
-    mapping(uint=>address)private _A;
+    mapping(uint=>address)private _A; //0-Admin,, 1-USDT, 2-93N, 3-Swap, 4-Tech
     mapping(uint=>Node)private node;
     mapping(uint=>address)private _tokenApprovals;
     mapping(address=>mapping(address=>bool))private _operatorApprovals;
@@ -256,8 +256,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             if(s.node<3)t+=node[p[i]].factor;
             else{
                 uint expiry=s.minted+node[p[i]].period;
-                if(expiry<block.timestamp)
-                    t+=s.t93n*node[p[i]].factor/P*(block.timestamp-s.claimed)/86400;
+                if(expiry>block.timestamp)t+=s.t93n*node[p[i]].factor/P*(block.timestamp-s.claimed)/86400;
                 else{
                     uint y=expiry+2628e3;
                     if(y>block.timestamp&&y>s.claimed)(y=s.t93n*2/5,x+=y,s.t93n-=y);
@@ -278,16 +277,15 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             if(z<1)s.claimed=block.timestamp;
         }
         /*
-        Calculate club node share (if any)
+        Calculate club node share, if any
         Transfer to user's wallet
         Transfer to upline's wallet if they are eligible
         */
-        if(t>0)x+=(node[3].total*node[3].factor/P+node[4].total*node[4].factor/P)/20*t/node[0].total;
+        if(t>0)x+=t/node[0].total*(node[3].total*node[3].factor/P+node[4].total*node[4].factor/P)*500/P;
         IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
         address[4]memory d=getUplines(msg.sender); 
         for(uint i;i<d.length;i++){
-            uint cm=checkMatchable(d[i]);
-            if(cm>0){
+            if(checkMatchable(d[i])>0){
                 uint amtP=x*refB[i]/P;
                 IERC20(_A[2]).transferFrom(address(this),d[i],amtP);
                 emit Payout(msg.sender,d[i],amtP,1);
