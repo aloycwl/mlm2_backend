@@ -1,10 +1,3 @@
-//Add public function to see group sales
-//Add Aleo as a node
-//Withdrawal Aleo
-//Live price
-//Burn Aleo
-//Total amount of MSN + Image of MSN
-
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC721{
     event Transfer(address indexed from,address indexed to,uint indexed tokenId);
@@ -49,14 +42,13 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     struct Node{
         uint price;
         uint count;
-        uint total; //1-3: shares, 4-5: total
-        uint factor; //1-3: shares, 4-5: staking %
+        uint total; //0-2: shares, 3-5: total
+        uint factor; //0-2: shares, 3-4: staking %
         uint period;
-        string uri;
     }
     event Payout(address indexed from,address indexed to,uint amount,uint indexed status); //0-U, 1-N
     mapping(uint=>address)private _A; //0-Admin, 1-USDT, 2-93N, 3-Swap, 4-Tech
-    mapping(uint=>Node)private node;
+    mapping(uint=>Node)public node;
     mapping(uint=>address)private _tokenApprovals;
     mapping(address=>mapping(address=>bool))private _operatorApprovals;
     mapping(address=>User)private user;
@@ -67,22 +59,17 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
     uint private _count; //For unique NFT
     constructor(address[4]memory A){
         /*
-        Add permanent packages for 0 and 4 to bypass payment checking and enable withdrawal
+        Add permanent packages for 0 and 4 to bypass token checking and enable withdrawal
         Initialise node: 0-Red Lion, 1-Green Lion, 2-Blue Lion, 3-Super Unicorn, 4-Asset Eagle, 5-MSN
         */
         (_A[0],_A[1],_A[2],_A[3],_A[4],pack[0].node)=(user[msg.sender].upline=msg.sender,A[0],A[1],A[2],A[3],3);
         user[_A[0]].pack.push(0);
         user[_A[4]].pack.push(0);
-        (node[0].count,node[0].price,node[0].factor,node[0].uri)=
-            (25e4,node[1].price=node[2].price=1e20,1,"bAXSCgPa1KkU9AABScYju6VxVy8F9NdPfUJxM3NsMWQt");
-        (node[1].count,node[1].factor,node[1].uri)=(15e4,2,"XC9ZBbRaKSVqx6bqvpBtCRgySWju2hnbT5x9sRZhheZw");
-        (node[2].count,node[2].factor,node[2].uri)=(1e5,3,"Z1vRU2Yf6BfZCdpTVRPzXUtoxAsxtPVjFk9aK2JxTtP2");
-        (node[3].count,node[3].price,node[3].period,node[3].factor,node[3].uri)=
-            (4e4,1e21,15552e3,10,"cUpTRu4AehAoGLGcYCEaCz9hR6bdB8shVmnmk5nNenyy");
-        (node[4].count,node[4].price,node[4].period,node[4].factor,node[4].uri)=
-            (1e4,5e21,31104e3,7,"bLKzHK2fCe4T8mdZ3NMk9yY4JwwNgS8gJeCfCEUmpkh7");
-        (node[5].count,node[5].price,node[5].period,node[5].factor,node[5].uri)=
-            (1e4,5e21,31104e3,7,"QMP8szWkrH5G7mJiA6fN75KnrrMUWUYoo9e5jptZrYDK");
+        (node[0].count,node[0].price,node[0].factor)=(25e4,node[1].price=node[2].price=1e20,node[5].factor=1);
+        (node[1].count,node[1].factor)=(15e4,2);
+        (node[2].count,node[2].factor)=(node[5].count=1e5,3);
+        (node[3].count,node[3].price,node[3].period,node[3].factor)=(4e4,node[5].price=1e21,15552e3,10);
+        (node[4].count,node[4].price,node[4].period,node[4].factor)=(1e4,5e21,node[5].period=31104e3,7);
     }
     function supportsInterface(bytes4 a)external pure returns(bool){
         return a==type(IERC721).interfaceId||a==type(IERC721Metadata).interfaceId;
@@ -117,7 +104,8 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         return user[a].pack.length;
     }
     function tokenURI(uint a)external view override returns(string memory){
-        return string(abi.encodePacked("ipfs://Qm",node[a].uri));
+        return string(abi.encodePacked(
+            "ipfs://QmXohBm69ykPeYjbpAoWwnoaSC39aTk7xjCqqy8nCnPeRj/",pack[a].node,".json"));
     }
     function safeTransferFrom(address a,address b,uint c)external override{
         transferFrom(a,b,c);
@@ -154,11 +142,12 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Update main counter and total count per node type
         Update user pack
         Update pack details
+        User don't receive any 93n if it is using Aleo
         */
         (_count++,node[n<3?0:n].total+=n<3?node[n].factor:1);
         user[msg.sender].pack.push(_count);
         Pack storage p=pack[_count];
-        (p.node,p.owner,p.t93n,p.minted)=(n,msg.sender,t,p.claimed=block.timestamp);
+        (p.node,p.owner,p.t93n,p.minted)=(n,msg.sender,n<5?t:0,p.claimed=block.timestamp);
         emit Transfer(address(0),msg.sender,_count);
     }}
     function checkMatchable(address a)private view returns(uint n){unchecked{
@@ -202,7 +191,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         for(uint i;i<p.length;i++)p[i]=pack[u[i]].node;
     }}
     function getGroupSales(address a)external view returns(address[]memory d,uint[]memory s){unchecked{
-        (d,s)=(user[a].downline,new uint[](d.length));
+        (d=user[a].downline,s=new uint[](d.length));
         for(uint i;i<d.length;i++)s[i]=user[a].groupSales[d[i]];
     }}
     function purchase(address referral,uint n,uint c)external{unchecked{
@@ -266,21 +255,22 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             if(s.node<3)t+=node[p[i]].factor;
             else{
                 uint expiry=s.minted+node[s.node].period;
-                if(expiry>block.timestamp)x+=s.t93n*node[p[i]].factor/P*(block.timestamp-s.claimed)/86400;
+                if(expiry>block.timestamp)
+                    x+=(node[s.node].factor>1?s.t93n:ISWAP(_A[3]).getAmountsOut(node[5].price,_A[1],_A[2]))
+                        *node[s.node].factor/P*(block.timestamp-s.claimed)/86400;
                 else{
                     uint y=expiry+2628e3;
                     if(y<block.timestamp&&y>s.claimed)(y=s.t93n*2/5,x+=y,s.t93n-=y);
                     y=expiry+5256e3;
                     if(y<block.timestamp&&y>s.claimed)(y=s.t93n/2,x+=y,s.t93n-=y);
                     y=expiry+7884e3;
-                    if(y<block.timestamp&&y>s.claimed){
+                    if((y<block.timestamp&&y>s.claimed)||s.node>4){
                         (y=s.t93n,x+=y,s.t93n-=y);
-                        if(s.node==4){
+                        if(s.node>3){
                             popPackages(msg.sender,p[i]);
                             emit Transfer(msg.sender,address(0),p[i]);
                             z=1;
                         }
-                        
                     }
                 }
             }
