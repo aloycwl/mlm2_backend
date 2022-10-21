@@ -20,7 +20,9 @@ interface IERC721Metadata{
 }
 interface IERC20{
     function transferFrom(address,address,uint)external;
+    function transfer(address,uint256)external;
     function balanceOf(address)external view returns(uint256);
+    function approve(address,uint256)external;
 }
 interface ISWAP{
     function getAmountsOut(uint,address,address)external view returns(uint);
@@ -45,31 +47,38 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         uint total; //0-2: shares, 3-5: total
         uint factor; //0-2: shares, 3-4: staking %
         uint period;
+        string uri;
     }
     event Payout(address indexed from,address indexed to,uint amount,uint indexed status); //0-U, 1-N
     mapping(uint=>address)private _A; //0-Admin, 1-USDT, 2-93N, 3-Swap, 4-Tech
     mapping(uint=>Node)public node;
     mapping(uint=>address)private _tokenApprovals;
     mapping(address=>mapping(address=>bool))private _operatorApprovals;
-    mapping(address=>User)private user;
+    mapping(address=>User)public user;
     mapping(uint=>Pack)public pack;
     uint constant private P=1e4; //Percentage
-    uint[4]private refA=[5e2,3e2,2e2,1e2];
+    uint[4]private refA=[1e3,5e2,5e2,1e2];
     uint[4]private refB=[5e2,5e2,1e3,1e2];
     uint private _count; //For unique NFT
-    constructor(address[4]memory A){
+    constructor(){
         /*
         Add permanent packages for 0 and 4 to bypass token checking and enable withdrawal
         Initialise node: 0-Red Lion, 1-Green Lion, 2-Blue Lion, 3-Super Unicorn, 4-Asset Eagle, 5-MSN
         */
-        (_A[0],_A[1],_A[2],_A[3],_A[4],pack[0].node)=(user[msg.sender].upline=msg.sender,A[0],A[1],A[2],A[3],3);
+        (_A[0],_A[1],_A[2],_A[3],_A[4],pack[0].node)=(user[msg.sender].upline=msg.sender,
+            0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56,0xEAa78380E5a6cc865Ea92ad0407E00265791f63c,
+            0x2d54dD6818E7da36Ce2a6755048A36c5De8D2921,0x2e0aCE0129E66A36cee92c5146C73Ec4874d0109,3);
         user[_A[0]].pack.push(0);
         user[_A[4]].pack.push(0);
-        (node[0].count,node[0].price,node[0].factor)=(25e4,node[1].price=node[2].price=1e20,node[5].factor=1);
-        (node[1].count,node[1].factor)=(15e4,2);
-        (node[2].count,node[2].factor)=(node[5].count=1e5,3);
-        (node[3].count,node[3].price,node[3].period,node[3].factor)=(4e4,node[5].price=1e21,15552e3,10);
-        (node[4].count,node[4].price,node[4].period,node[4].factor)=(1e4,5e21,node[5].period=31104e3,7);
+        (node[0].count,node[0].price,node[0].factor,node[0].uri)=
+            (25e4,node[1].price=node[2].price=1e20,node[5].factor=1,"0");
+        (node[1].count,node[1].factor,node[1].uri)=(15e4,2,"1");
+        (node[2].count,node[2].factor,node[2].uri)=(node[5].count=1e5,3,"2");
+        (node[3].count,node[3].price,node[3].period,node[3].factor,node[3].uri)=
+            (4e4,node[5].price=1e21,15552e3,10,"3");
+        (node[4].count,node[4].price,node[4].period,node[4].factor,node[4].uri)=
+            (1e4,5e21,node[5].period=31104e3,7,"4");
+        node[5].uri="5";
     }
     function supportsInterface(bytes4 a)external pure returns(bool){
         return a==type(IERC721).interfaceId||a==type(IERC721Metadata).interfaceId;
@@ -104,8 +113,8 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         return user[a].pack.length;
     }
     function tokenURI(uint a)external view override returns(string memory){
-        return string(abi.encodePacked(
-            "ipfs://QmXohBm69ykPeYjbpAoWwnoaSC39aTk7xjCqqy8nCnPeRj/",pack[a].node,".json"));
+        return string(abi.encodePacked("ipfs://QmXohBm69ykPeYjbpAoWwnoaSC39aTk7xjCqqy8nCnPeRj/",
+            node[pack[a].node].uri,".json"));
     }
     function safeTransferFrom(address a,address b,uint c)external override{
         transferFrom(a,b,c);
@@ -162,7 +171,7 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
             if(pack[p[i]].node>2&&tempL>largest)(n,largest)=(p[i],tempL);
         }
     }}
-    function getUplines(address u)private view returns(address[4]memory d){
+    function getUplines(address u)public view returns(address[4]memory d){
         /*
         d[0] being the direct and d[2] is the furthest
         If there is no d[1] or d[2], the upline is the last available one
@@ -216,7 +225,8 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         address[4]memory d=getUplines(msg.sender); 
         for(uint i;i<d.length;i++){
             (uint amtP,uint cm)=(amt*refA[i]/P,checkMatchable(d[i]));
-            IERC20(_A[1]).transferFrom(address(this),d[i],amtP);
+            IERC20(_A[1]).approve(d[i],amtP);
+            IERC20(_A[1]).transfer(d[i],amtP);
             emit Payout(msg.sender,d[i],amtP,0);
             if(cm>0)pack[cm].t93n+=refB[i]/P;
             user[d[i]].groupSales[msg.sender]+=amt;
@@ -282,11 +292,11 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Transfer to upline's wallet if they are eligible
         */
         if(t>0)x+=t/node[0].total*(node[3].total*node[3].factor/P+node[4].total*node[4].factor/P)*500/P;
-        IERC20(_A[2]).transferFrom(address(this),msg.sender,x);
+        IERC20(_A[2]).transfer(msg.sender,x);
         address[4]memory d=getUplines(msg.sender); 
         for(uint i;i<d.length;i++)if(checkMatchable(d[i])>0){
             uint amtP=x*refB[i]/P;
-            IERC20(_A[2]).transferFrom(address(this),d[i],amtP);
+            IERC20(_A[2]).transfer(d[i],amtP);
             emit Payout(msg.sender,d[i],amtP,1);
         }
     }}
@@ -324,7 +334,9 @@ contract ERC721AC_93N is IERC721,IERC721Metadata{
         Add or remove excess coin
         */
         require(_A[0]==msg.sender,"Invalid access");
-        n>0?IERC20(_A[t]).transferFrom(address(this),msg.sender,n):
-            IERC20(_A[t]).transferFrom(msg.sender,address(this),m);
+        if(n>0){
+            IERC20(_A[t]).approve(msg.sender,n);
+            IERC20(_A[t]).transfer(msg.sender,n);
+        }else IERC20(_A[t]).transferFrom(msg.sender,address(this),m);
     }}
 }
