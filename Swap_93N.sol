@@ -1,5 +1,8 @@
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
-interface IERC20{function transferFrom(address,address,uint)external;}
+interface IERC20{
+    function transfer(address,uint256)external;
+    function transferFrom(address,address,uint)external;
+}
 contract Swap_93N{
     uint public fee=9999; //Divide by 10000 to return 99.9%
     address private _owner;
@@ -19,8 +22,8 @@ contract Swap_93N{
         (pairs[addr0][addr1]+=amt0,pairs[addr1][addr0]+=amt1);
     }}
     function RemoveLiqudity(address addr0,address addr1,uint amt0,uint amt1)external OnlyOwner{unchecked{
-        IERC20(addr0).transferFrom(address(this),msg.sender,amt0);
-        IERC20(addr1).transferFrom(address(this),msg.sender,amt1);
+        IERC20(addr0).transfer(msg.sender,amt0);
+        IERC20(addr1).transfer(msg.sender,amt1);
         (pairs[addr0][addr1]-=amt0,pairs[addr1][addr0]-=amt1);
     }} 
     function exchange(uint amt,address addr0,address addr1)external{unchecked{
@@ -28,7 +31,7 @@ contract Swap_93N{
         require(amt2>0);
         require(amt2<=pairs[addr1][addr0]);
         IERC20(addr0).transferFrom(msg.sender,address(this),amt);
-        IERC20(addr1).transferFrom(address(this),msg.sender,amt2);
+        IERC20(addr1).transferFrom(msg.sender,amt2);
         (pairs[addr0][addr1]+=amt,pairs[addr1][addr0]-=amt2);
     }}
     function getAmountsOut(uint amt,address addr0,address addr1)public view returns(uint){unchecked{
@@ -40,4 +43,3 @@ contract Swap_93N{
         return(pairs[addr1][addr0]-_L2+(d>0?pairs[addr1][addr0]*d/pairs[addr0][addr1]:0))*fee/1e4;
     }}
 }
-//1000000000000000000
