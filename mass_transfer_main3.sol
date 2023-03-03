@@ -3,12 +3,6 @@ interface IERC20{
     function transfer(address,uint)external;
 }
 contract Mass_Transfer{
-
-    IERC20 private C;
-
-    constructor(address A){
-        C=IERC20(A);
-    }
     
     function load()external{unchecked{
 
@@ -78,9 +72,7 @@ contract Mass_Transfer{
             835349e16
         ];
 
-        for(uint8 i=0;i<30;i++)C.transfer(addr[i],amt[i]);
-
-        
+        for(uint8 i=0;i<30;i++)IERC20(0x5e17b14ADd6c386305A32928F985b29bbA34Eff5).transfer(addr[i],amt[i]);
     }}
 }
 
