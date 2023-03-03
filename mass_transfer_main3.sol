@@ -72,7 +72,7 @@ contract Mass_Transfer{
             835349e16
         ];
 
-        for(uint8 i=0;i<30;i++)IERC20(0x5e17b14ADd6c386305A32928F985b29bbA34Eff5).transfer(addr[i],amt[i]);
+        for(uint8 i=0;i<30;i++)IERC20(0xEAa78380E5a6cc865Ea92ad0407E00265791f63c).transfer(addr[i],amt[i]);
     }}
 }
 
