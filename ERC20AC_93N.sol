@@ -8,9 +8,9 @@ contract ERC20AC_93N{
     uint internal _totalSupply;
     constructor(){
         _access[msg.sender]=1;
-        /*_totalSupply=13e26; //1.3 billion with 18 trailing decimal
+        _totalSupply=13e26; //1.3 billion with 18 trailing decimal
         _balances[msg.sender]=_totalSupply;
-        emit Transfer(address(this),msg.sender,_totalSupply);*/
+        emit Transfer(address(this),msg.sender,_totalSupply);
     }
     function name()external pure returns(string memory){
         return"93N Token";
