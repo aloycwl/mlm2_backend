@@ -1,6 +1,5 @@
 pragma solidity>0.8.0;//SPDX-License-Identifier:None
 interface IERC20{
-    function transferFrom(address,address,uint)external;
     function transfer(address,uint)external;
 }
 contract Mass_Transfer{
@@ -11,8 +10,7 @@ contract Mass_Transfer{
         C=IERC20(A);
     }
     
-    function load()internal{unchecked{
-        C.transferFrom(msg.sender,address(this),20999948e16);
+    function load()external{unchecked{
 
         address[30]memory addr=[
             0x05d8B19D4825409B335613E88aa1db194006eC4C,
